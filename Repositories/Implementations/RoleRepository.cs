@@ -17,6 +17,7 @@ public class RoleRepository : IRoleRepository
     public async Task<Role?> GetByIdAsync(int roleId)
     {
         return await _context.Roles
+            .Include(r => r.Platform)
             .Include(r => r.RolePermissions)
             .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(r => r.RoleId == roleId);
@@ -25,6 +26,7 @@ public class RoleRepository : IRoleRepository
     public async Task<Role?> GetByNameAsync(string name)
     {
         return await _context.Roles
+            .Include(r => r.Platform)
             .Include(r => r.RolePermissions)
             .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(r => r.Name == name);
@@ -33,6 +35,7 @@ public class RoleRepository : IRoleRepository
     public async Task<IEnumerable<Role>> GetAllAsync()
     {
         return await _context.Roles
+            .Include(r => r.Platform)
             .Include(r => r.RolePermissions)
             .ThenInclude(rp => rp.Permission)
             .ToListAsync();

@@ -26,14 +26,21 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.UserId);
             entity.Property(e => e.UserId).ValueGeneratedOnAdd(); // Identity column
-            entity.HasIndex(e => e.Email).IsUnique();
-            entity.HasIndex(e => e.UserName).IsUnique();
+            // Email and UserName should be unique per platform
+            entity.HasIndex(e => new { e.Email, e.PlatformId }).IsUnique();
+            entity.HasIndex(e => new { e.UserName, e.PlatformId }).IsUnique();
             entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
             entity.Property(e => e.UserName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.PasswordHash).IsRequired();
             entity.Property(e => e.PasswordSalt).IsRequired();
+            
+            // Platform relationship
+            entity.HasOne(e => e.Platform)
+                .WithMany(p => p.Users)
+                .HasForeignKey(e => e.PlatformId)
+                .OnDelete(DeleteBehavior.Restrict);
             
             // Soft delete query filter
             entity.HasQueryFilter(e => e.DeletedAt == null);
@@ -44,9 +51,16 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.RoleId);
             entity.Property(e => e.RoleId).ValueGeneratedOnAdd(); // Identity column
-            entity.HasIndex(e => e.Name).IsUnique();
+            // Role name should be unique per platform
+            entity.HasIndex(e => new { e.Name, e.PlatformId }).IsUnique();
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
+            
+            // Platform relationship
+            entity.HasOne(e => e.Platform)
+                .WithMany(p => p.Roles)
+                .HasForeignKey(e => e.PlatformId)
+                .OnDelete(DeleteBehavior.Restrict);
             
             // Soft delete query filter
             entity.HasQueryFilter(e => e.DeletedAt == null);

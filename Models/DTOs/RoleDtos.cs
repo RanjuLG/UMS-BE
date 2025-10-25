@@ -6,12 +6,15 @@ public class RoleDto
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public int PlatformId { get; set; }
+    public string PlatformName { get; set; } = string.Empty;
 }
 
 public class CreateRoleRequest
 {
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public int PlatformId { get; set; }
 }
 
 public class UpdateRoleRequest

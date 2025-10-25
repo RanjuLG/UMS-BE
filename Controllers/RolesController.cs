@@ -28,7 +28,9 @@ public class RolesController : ControllerBase
             RoleId = r.RoleId,
             Name = r.Name,
             Description = r.Description,
-            IsActive = r.IsActive
+            IsActive = r.IsActive,
+            PlatformId = r.PlatformId,
+            PlatformName = r.Platform.Name
         });
 
         return Ok(roleDtos);
@@ -46,7 +48,9 @@ public class RolesController : ControllerBase
             RoleId = role.RoleId,
             Name = role.Name,
             Description = role.Description,
-            IsActive = role.IsActive
+            IsActive = role.IsActive,
+            PlatformId = role.PlatformId,
+            PlatformName = role.Platform.Name
         });
     }
 
@@ -58,6 +62,7 @@ public class RolesController : ControllerBase
         {
             Name = request.Name,
             Description = request.Description,
+            PlatformId = request.PlatformId,
             IsActive = true
         };
 
@@ -67,7 +72,9 @@ public class RolesController : ControllerBase
             RoleId = created.RoleId,
             Name = created.Name,
             Description = created.Description,
-            IsActive = created.IsActive
+            IsActive = created.IsActive,
+            PlatformId = created.PlatformId,
+            PlatformName = created.Platform.Name
         });
     }
 
@@ -92,7 +99,9 @@ public class RolesController : ControllerBase
             RoleId = updated.RoleId,
             Name = updated.Name,
             Description = updated.Description,
-            IsActive = updated.IsActive
+            IsActive = updated.IsActive,
+            PlatformId = updated.PlatformId,
+            PlatformName = updated.Platform.Name
         });
     }
 

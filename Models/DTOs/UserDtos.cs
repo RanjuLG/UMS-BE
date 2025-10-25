@@ -38,6 +38,7 @@ public class RegisterRequest
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    public int PlatformId { get; set; }
 }
 
 public class UserDto
@@ -48,6 +49,8 @@ public class UserDto
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public int PlatformId { get; set; }
+    public string PlatformName { get; set; } = string.Empty;
     public List<string> Roles { get; set; } = new();
 }
 
@@ -58,6 +61,7 @@ public class CreateUserRequest
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    public int PlatformId { get; set; }
 }
 
 public class UpdateUserRequest

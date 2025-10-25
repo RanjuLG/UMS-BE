@@ -49,7 +49,40 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero,
         NameClaimType = "name",
-        RoleClaimType = "role"
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role
+    };
+    
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"Authentication failed: {context.Exception.Message}");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine("Token validated successfully");
+            var claims = context.Principal?.Claims.Select(c => $"{c.Type}: {c.Value}");
+            if (claims != null)
+            {
+                Console.WriteLine("Claims in token:");
+                foreach (var claim in claims)
+                {
+                    Console.WriteLine($"  {claim}");
+                }
+            }
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            Console.WriteLine($"OnChallenge: {context.Error}, {context.ErrorDescription}");
+            return Task.CompletedTask;
+        },
+        OnForbidden = context =>
+        {
+            Console.WriteLine("OnForbidden: Access denied");
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -67,6 +100,13 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser();
         policy.RequireRole("User", "Admin");
     });
+});
+
+// Add logging for authorization
+builder.Services.AddLogging(logging =>
+{
+    logging.AddConsole();
+    logging.SetMinimumLevel(LogLevel.Debug);
 });
 
 // Add CORS

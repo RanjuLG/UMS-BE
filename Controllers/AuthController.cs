@@ -104,6 +104,8 @@ public class AuthController : ControllerBase
                     LastName = user.LastName,
                     Email = user.Email,
                     IsActive = user.IsActive,
+                    PlatformId = user.PlatformId,
+                    PlatformName = user.Platform.Name,
                     Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
                 }
             });
@@ -218,7 +220,8 @@ public class AuthController : ControllerBase
                 request.FirstName,
                 request.LastName,
                 request.Email,
-                request.Password);
+                request.Password,
+                request.PlatformId);
 
             return CreatedAtAction(nameof(Register), new UserDto
             {
@@ -227,7 +230,9 @@ public class AuthController : ControllerBase
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 Email = user.Email,
-                IsActive = user.IsActive
+                IsActive = user.IsActive,
+                PlatformId = user.PlatformId,
+                PlatformName = user.Platform.Name
             });
         }
         catch (Exception ex)

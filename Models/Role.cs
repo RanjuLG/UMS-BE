@@ -7,6 +7,9 @@ public class Role
     public string Description { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     
+    // Platform relationship
+    public int PlatformId { get; set; }
+    
     // Audit fields
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public int? CreatedBy { get; set; }
@@ -16,6 +19,7 @@ public class Role
     public int? DeletedBy { get; set; }
 
     // Navigation properties
+    public Platform Platform { get; set; } = null!;
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
 }

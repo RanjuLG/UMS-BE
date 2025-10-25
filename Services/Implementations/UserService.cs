@@ -40,7 +40,7 @@ public class UserService : IUserService
         return await _userRepository.GetAllAsync();
     }
 
-    public async Task<User> CreateAsync(string userName, string firstName, string lastName, string email, string password)
+    public async Task<User> CreateAsync(string userName, string firstName, string lastName, string email, string password, int platformId)
     {
         var hash = _passwordHashingService.HashPassword(password, out var salt);
 
@@ -52,6 +52,7 @@ public class UserService : IUserService
             Email = email,
             PasswordHash = hash,
             PasswordSalt = salt,
+            PlatformId = platformId,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };

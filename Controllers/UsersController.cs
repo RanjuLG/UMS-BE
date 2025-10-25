@@ -33,6 +33,8 @@ public class UsersController : ControllerBase
             LastName = u.LastName,
             Email = u.Email,
             IsActive = u.IsActive,
+            PlatformId = u.PlatformId,
+            PlatformName = u.Platform.Name,
             Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
         });
 
@@ -54,6 +56,8 @@ public class UsersController : ControllerBase
             LastName = user.LastName,
             Email = user.Email,
             IsActive = user.IsActive,
+            PlatformId = user.PlatformId,
+            PlatformName = user.Platform.Name,
             Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
         });
     }
@@ -68,7 +72,8 @@ public class UsersController : ControllerBase
                 request.FirstName,
                 request.LastName,
                 request.Email,
-                request.Password);
+                request.Password,
+                request.PlatformId);
 
             return CreatedAtAction(nameof(GetById), new { id = user.UserId }, new UserDto
             {
@@ -77,7 +82,9 @@ public class UsersController : ControllerBase
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 Email = user.Email,
-                IsActive = user.IsActive
+                IsActive = user.IsActive,
+                PlatformId = user.PlatformId,
+                PlatformName = user.Platform.Name
             });
         }
         catch (Exception ex)
@@ -107,6 +114,8 @@ public class UsersController : ControllerBase
                 LastName = user.LastName,
                 Email = user.Email,
                 IsActive = user.IsActive,
+                PlatformId = user.PlatformId,
+                PlatformName = user.Platform.Name,
                 Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
             });
         }
@@ -146,7 +155,9 @@ public class UsersController : ControllerBase
             RoleId = r.RoleId,
             Name = r.Name,
             Description = r.Description,
-            IsActive = r.IsActive
+            IsActive = r.IsActive,
+            PlatformId = r.PlatformId,
+            PlatformName = r.Platform.Name
         });
 
         return Ok(roleDtos);
