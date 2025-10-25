@@ -4,13 +4,31 @@ public class LoginRequest
 {
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
 }
 
 public class LoginResponse
 {
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
+    public string? AccessToken { get; set; }
+    public string? RefreshToken { get; set; }
+    public int ExpiresIn { get; set; }
     public UserDto? User { get; set; }
+}
+
+public class RefreshTokenRequest
+{
+    public string RefreshToken { get; set; } = string.Empty;
+    public string? ClientId { get; set; }
+}
+
+public class TokenResponse
+{
+    public string AccessToken { get; set; } = string.Empty;
+    public string RefreshToken { get; set; } = string.Empty;
+    public int ExpiresIn { get; set; }
 }
 
 public class RegisterRequest

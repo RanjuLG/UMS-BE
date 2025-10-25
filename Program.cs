@@ -1,14 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Duende.IdentityServer.Services;
-using Duende.IdentityServer.Validation;
-using Duende.IdentityServer.Stores;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using UMS_BE.Data;
 using UMS_BE.Repositories.Interfaces;
 using UMS_BE.Repositories.Implementations;
 using UMS_BE.Services.Interfaces;
 using UMS_BE.Services.Implementations;
-using UMS_BE.IdentityServer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,62 +23,12 @@ builder.Services.AddScoped<IPlatformRepository, PlatformRepository>();
 // Add Services
 builder.Services.AddScoped<IPasswordHashingService, PasswordHashingService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
 
-// Add Duende IdentityServer
-builder.Services.AddIdentityServer(options =>
-{
-    options.Events.RaiseErrorEvents = true;
-    options.Events.RaiseInformationEvents = true;
-    options.Events.RaiseFailureEvents = true;
-    options.Events.RaiseSuccessEvents = true;
-})
-.AddDeveloperSigningCredential()
-.AddInMemoryIdentityResources(new[]
-{
-    new Duende.IdentityServer.Models.IdentityResource
-    {
-        Name = "openid",
-        DisplayName = "Your user identifier",
-        Required = true,
-        UserClaims = { "sub" }
-    },
-    new Duende.IdentityServer.Models.IdentityResource
-    {
-        Name = "profile",
-        DisplayName = "User profile",
-        Description = "Your user profile information",
-        UserClaims = { "name", "given_name", "family_name", "email", "username" }
-    },
-    new Duende.IdentityServer.Models.IdentityResource
-    {
-        Name = "email",
-        DisplayName = "Your email address",
-        UserClaims = { "email" }
-    },
-    new Duende.IdentityServer.Models.IdentityResource
-    {
-        Name = "roles",
-        DisplayName = "Your roles",
-        UserClaims = { "role" }
-    },
-    new Duende.IdentityServer.Models.IdentityResource
-    {
-        Name = "permissions",
-        DisplayName = "Your permissions",
-        UserClaims = { "permission" }
-    }
-})
-.AddInMemoryApiScopes(new[]
-{
-    new Duende.IdentityServer.Models.ApiScope("api", "Main API")
-});
+// Add JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured");
+var key = Encoding.UTF8.GetBytes(jwtKey);
 
-// Register custom IdentityServer services
-builder.Services.AddTransient<IResourceOwnerPasswordValidator, CustomPasswordValidator>();
-builder.Services.AddTransient<IProfileService, CustomProfileService>();
-builder.Services.AddTransient<IClientStore, CustomClientStore>();
-
-// Add Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -88,9 +36,21 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.Authority = builder.Configuration["IdentityServer:Authority"] ?? "https://localhost:7000";
-    options.Audience = "api";
-    options.RequireHttpsMetadata = false;
+    options.RequireHttpsMetadata = false; // For development only
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidateAudience = true,
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero,
+        NameClaimType = "name",
+        RoleClaimType = "role"
+    };
 });
 
 // Add Authorization Policies
@@ -99,7 +59,13 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminPolicy", policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireClaim("role", "Admin");
+        policy.RequireRole("Admin");
+    });
+    
+    options.AddPolicy("UserPolicy", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("User", "Admin");
     });
 });
 
@@ -155,8 +121,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors();
-
-app.UseIdentityServer();
 
 app.UseAuthentication();
 app.UseAuthorization();
