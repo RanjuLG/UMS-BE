@@ -167,20 +167,28 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed database
+// Seed database and migrate users to platforms
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
         var passwordHashingService = services.GetRequiredService<IPasswordHashingService>();
+        
+        // Seed initial data
         await DbInitializer.SeedAsync(context, passwordHashingService);
+        
+        // Migrate existing users to have platform associations
+        logger.LogInformation("Checking for users without platform associations...");
+        await UserPlatformMigrationHelper.MigrateExistingUsersAsync(context, defaultPlatformId: 1);
+        logger.LogInformation("User-Platform migration check completed.");
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
+        logger.LogError(ex, "An error occurred while seeding the database or migrating users.");
     }
 }
 

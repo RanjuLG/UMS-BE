@@ -17,7 +17,8 @@ public class UserRepository : IUserRepository
     public async Task<User?> GetByIdAsync(int userId)
     {
         return await _context.Users
-            .Include(u => u.Platform)
+            .Include(u => u.UserPlatforms)
+            .ThenInclude(up => up.Platform)
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == userId);
@@ -26,7 +27,8 @@ public class UserRepository : IUserRepository
     public async Task<User?> GetByEmailAsync(string email)
     {
         return await _context.Users
-            .Include(u => u.Platform)
+            .Include(u => u.UserPlatforms)
+            .ThenInclude(up => up.Platform)
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Email == email);
@@ -35,7 +37,8 @@ public class UserRepository : IUserRepository
     public async Task<User?> GetByUserNameAsync(string userName)
     {
         return await _context.Users
-            .Include(u => u.Platform)
+            .Include(u => u.UserPlatforms)
+            .ThenInclude(up => up.Platform)
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserName == userName);
@@ -44,7 +47,8 @@ public class UserRepository : IUserRepository
     public async Task<IEnumerable<User>> GetAllAsync()
     {
         return await _context.Users
-            .Include(u => u.Platform)
+            .Include(u => u.UserPlatforms)
+            .ThenInclude(up => up.Platform)
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .ToListAsync();
@@ -106,5 +110,28 @@ public class UserRepository : IUserRepository
             .Select(rp => rp.Permission)
             .Distinct()
             .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Platform>> GetUserPlatformsAsync(int userId)
+    {
+        return await _context.UserPlatforms
+            .Where(up => up.UserId == userId)
+            .Include(up => up.Platform)
+            .Select(up => up.Platform)
+            .ToListAsync();
+    }
+
+    public async Task AddUserToPlatformAsync(int userId, int platformId, int? createdBy = null)
+    {
+        var userPlatform = new UserPlatform
+        {
+            UserId = userId,
+            PlatformId = platformId,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = createdBy
+        };
+
+        _context.UserPlatforms.Add(userPlatform);
+        await _context.SaveChangesAsync();
     }
 }

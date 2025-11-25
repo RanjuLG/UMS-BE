@@ -40,7 +40,7 @@ public class UserService : IUserService
         return await _userRepository.GetAllAsync();
     }
 
-    public async Task<User> CreateAsync(string userName, string firstName, string lastName, string email, string password, int platformId)
+    public async Task<User> CreateAsync(string userName, string firstName, string lastName, string email, string password, List<int> platformIds)
     {
         var hash = _passwordHashingService.HashPassword(password, out var salt);
 
@@ -52,12 +52,19 @@ public class UserService : IUserService
             Email = email,
             PasswordHash = hash,
             PasswordSalt = salt,
-            PlatformId = platformId,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
-        return await _userRepository.CreateAsync(user, null);
+        var createdUser = await _userRepository.CreateAsync(user, null);
+
+        // Add user to platforms
+        foreach (var platformId in platformIds)
+        {
+            await _userRepository.AddUserToPlatformAsync(createdUser.UserId, platformId, null);
+        }
+
+        return createdUser;
     }
 
     public async Task<User> UpdateAsync(int userId, string? userName, string? firstName, string? lastName, string? email, bool? isActive)

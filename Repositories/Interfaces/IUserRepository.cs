@@ -14,4 +14,6 @@ public interface IUserRepository
     Task<bool> ExistsAsync(int userId);
     Task<IEnumerable<Role>> GetUserRolesAsync(int userId);
     Task<IEnumerable<Permission>> GetUserPermissionsForPlatformAsync(int userId, int platformId);
+    Task<IEnumerable<Platform>> GetUserPlatformsAsync(int userId);
+    Task AddUserToPlatformAsync(int userId, int platformId, int? createdBy = null);
 }

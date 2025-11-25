@@ -14,6 +14,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Permission> Permissions { get; set; }
     public DbSet<Platform> Platforms { get; set; }
     public DbSet<UserRole> UserRoles { get; set; }
+    public DbSet<UserPlatform> UserPlatforms { get; set; }
     public DbSet<RolePermission> RolePermissions { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
 
@@ -26,21 +27,15 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.UserId);
             entity.Property(e => e.UserId).ValueGeneratedOnAdd(); // Identity column
-            // Email and UserName should be unique per platform
-            entity.HasIndex(e => new { e.Email, e.PlatformId }).IsUnique();
-            entity.HasIndex(e => new { e.UserName, e.PlatformId }).IsUnique();
+            // Email and UserName should be unique
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.UserName).IsUnique();
             entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
             entity.Property(e => e.UserName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.PasswordHash).IsRequired();
             entity.Property(e => e.PasswordSalt).IsRequired();
-            
-            // Platform relationship
-            entity.HasOne(e => e.Platform)
-                .WithMany(p => p.Users)
-                .HasForeignKey(e => e.PlatformId)
-                .OnDelete(DeleteBehavior.Restrict);
             
             // Soft delete query filter
             entity.HasQueryFilter(e => e.DeletedAt == null);
@@ -114,6 +109,22 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.Role)
                 .WithMany(r => r.UserRoles)
                 .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // UserPlatform configuration (many-to-many)
+        modelBuilder.Entity<UserPlatform>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.PlatformId });
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.UserPlatforms)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Platform)
+                .WithMany(p => p.UserPlatforms)
+                .HasForeignKey(e => e.PlatformId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

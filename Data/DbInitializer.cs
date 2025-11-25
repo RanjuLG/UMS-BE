@@ -101,7 +101,6 @@ public static class DbInitializer
             Email = "admin@ums.com",
             PasswordHash = adminHash,
             PasswordSalt = adminSalt,
-            PlatformId = umsPlatform.PlatformId,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -118,13 +117,30 @@ public static class DbInitializer
             Email = "demo@demo.com",
             PasswordHash = demoHash,
             PasswordSalt = demoSalt,
-            PlatformId = demoPlatform.PlatformId,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         context.Users.AddRange(umsAdminUser, demoUser);
         await context.SaveChangesAsync(); // Save to generate UserIds
+
+        // Assign platforms to users
+        var umsAdminUserPlatform = new UserPlatform
+        {
+            UserId = umsAdminUser.UserId,
+            PlatformId = umsPlatform.PlatformId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var demoUserPlatform = new UserPlatform
+        {
+            UserId = demoUser.UserId,
+            PlatformId = demoPlatform.PlatformId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.UserPlatforms.AddRange(umsAdminUserPlatform, demoUserPlatform);
+        await context.SaveChangesAsync();
 
         // Assign Roles to Users
         var umsAdminUserRole = new UserRole

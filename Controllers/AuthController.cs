@@ -16,6 +16,7 @@ public class AuthController : ControllerBase
     private readonly IUserService _userService;
     private readonly ITokenService _tokenService;
     private readonly IPlatformRepository _platformRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<AuthController> _logger;
 
@@ -23,12 +24,14 @@ public class AuthController : ControllerBase
         IUserService userService,
         ITokenService tokenService,
         IPlatformRepository platformRepository,
+        IUserRepository userRepository,
         ApplicationDbContext context,
         ILogger<AuthController> logger)
     {
         _userService = userService;
         _tokenService = tokenService;
         _platformRepository = platformRepository;
+        _userRepository = userRepository;
         _context = context;
         _logger = logger;
     }
@@ -104,8 +107,11 @@ public class AuthController : ControllerBase
                     LastName = user.LastName,
                     Email = user.Email,
                     IsActive = user.IsActive,
-                    PlatformId = user.PlatformId,
-                    PlatformName = user.Platform.Name,
+                    Platforms = user.UserPlatforms.Select(up => new PlatformDto
+                    {
+                        PlatformId = up.Platform.PlatformId,
+                        Name = up.Platform.Name
+                    }).ToList(),
                     Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
                 }
             });
@@ -221,18 +227,24 @@ public class AuthController : ControllerBase
                 request.LastName,
                 request.Email,
                 request.Password,
-                request.PlatformId);
+                request.PlatformIds);
+
+            // Reload user with platforms
+            user = await _userService.GetByIdAsync(user.UserId);
 
             return CreatedAtAction(nameof(Register), new UserDto
             {
-                UserId = user.UserId,
+                UserId = user!.UserId,
                 UserName = user.UserName,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 Email = user.Email,
                 IsActive = user.IsActive,
-                PlatformId = user.PlatformId,
-                PlatformName = user.Platform.Name
+                Platforms = user.UserPlatforms.Select(up => new PlatformDto
+                {
+                    PlatformId = up.Platform.PlatformId,
+                    Name = up.Platform.Name
+                }).ToList()
             });
         }
         catch (Exception ex)
@@ -273,6 +285,182 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Error revoking tokens");
             return StatusCode(500, new { message = "An error occurred while revoking tokens" });
+        }
+    }
+
+    /// <summary>
+    /// Validates user's access to a specific platform and optionally generates a platform-specific token
+    /// Use this when user clicks on a third-party platform from UMS
+    /// </summary>
+    [Authorize]
+    [HttpPost("validate-platform-access")]
+    public async Task<ActionResult<PlatformAccessResponse>> ValidatePlatformAccess([FromBody] PlatformAccessRequest request)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new PlatformAccessResponse
+                {
+                    Success = false,
+                    Message = "Invalid user",
+                    HasAccess = false
+                });
+            }
+
+            // Get user's platforms
+            var user = await _userService.GetByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound(new PlatformAccessResponse
+                {
+                    Success = false,
+                    Message = "User not found",
+                    HasAccess = false
+                });
+            }
+
+            // Check if user has access to this platform
+            var userPlatform = user.UserPlatforms.FirstOrDefault(up => up.PlatformId == request.PlatformId);
+            if (userPlatform == null)
+            {
+                return Ok(new PlatformAccessResponse
+                {
+                    Success = true,
+                    Message = "User does not have access to this platform",
+                    HasAccess = false
+                });
+            }
+
+            // Get platform details
+            var platform = await _platformRepository.GetByIdAsync(request.PlatformId);
+            if (platform == null || !platform.IsActive)
+            {
+                return Ok(new PlatformAccessResponse
+                {
+                    Success = true,
+                    Message = "Platform not found or inactive",
+                    HasAccess = false
+                });
+            }
+
+            // Validate client credentials if provided
+            if (!string.IsNullOrEmpty(request.ClientId) && platform.ClientId != request.ClientId)
+            {
+                return Ok(new PlatformAccessResponse
+                {
+                    Success = true,
+                    Message = "Invalid client ID",
+                    HasAccess = false
+                });
+            }
+
+            // Get user's roles and permissions for this platform
+            var roles = await _userRepository.GetUserRolesAsync(userId);
+            var permissions = await _userRepository.GetUserPermissionsForPlatformAsync(userId, request.PlatformId);
+
+            // Parse redirect URIs
+            var redirectUris = string.IsNullOrEmpty(platform.RedirectUris) 
+                ? Array.Empty<string>() 
+                : System.Text.Json.JsonSerializer.Deserialize<string[]>(platform.RedirectUris) ?? Array.Empty<string>();
+
+            var postLogoutRedirectUris = string.IsNullOrEmpty(platform.PostLogoutRedirectUris) 
+                ? Array.Empty<string>() 
+                : System.Text.Json.JsonSerializer.Deserialize<string[]>(platform.PostLogoutRedirectUris) ?? Array.Empty<string>();
+
+            var allowedScopes = string.IsNullOrEmpty(platform.AllowedScopes) 
+                ? Array.Empty<string>() 
+                : System.Text.Json.JsonSerializer.Deserialize<string[]>(platform.AllowedScopes) ?? Array.Empty<string>();
+
+            // Generate platform-specific token with clientId
+            var platformToken = await _tokenService.GenerateAccessTokenAsync(user, platform.ClientId);
+
+            return Ok(new PlatformAccessResponse
+            {
+                Success = true,
+                Message = "User has access to this platform",
+                HasAccess = true,
+                Platform = new PlatformAccessDetails
+                {
+                    PlatformId = platform.PlatformId,
+                    Name = platform.Name,
+                    ClientId = platform.ClientId,
+                    RedirectUris = redirectUris,
+                    PostLogoutRedirectUris = postLogoutRedirectUris,
+                    AllowedScopes = allowedScopes,
+                    Permissions = permissions.Select(p => $"{p.Resource}:{p.Action}").ToList(),
+                    Roles = roles.Select(r => r.Name).ToList()
+                },
+                PlatformSpecificToken = platformToken
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating platform access");
+            return StatusCode(500, new PlatformAccessResponse
+            {
+                Success = false,
+                Message = "An error occurred while validating platform access",
+                HasAccess = false
+            });
+        }
+    }
+
+    /// <summary>
+    /// Get redirect URL for a platform with authentication token
+    /// Use this to generate the complete redirect URL with token
+    /// </summary>
+    [Authorize]
+    [HttpGet("platform-redirect/{platformId}")]
+    public async Task<ActionResult<PlatformRedirectResponse>> GetPlatformRedirectUrl(int platformId)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Invalid user" });
+            }
+
+            // Validate access
+            var accessResult = await ValidatePlatformAccess(new PlatformAccessRequest { PlatformId = platformId });
+            if (accessResult.Result is OkObjectResult okResult && okResult.Value is PlatformAccessResponse response)
+            {
+                if (!response.HasAccess || response.Platform == null)
+                {
+                    return Forbid();
+                }
+
+                // Get the first redirect URI
+                var redirectUri = response.Platform.RedirectUris.FirstOrDefault();
+                if (string.IsNullOrEmpty(redirectUri))
+                {
+                    return BadRequest(new { message = "No redirect URI configured for this platform" });
+                }
+
+                // Build redirect URL with token
+                var separator = redirectUri.Contains('?') ? "&" : "?";
+                var redirectUrl = $"{redirectUri}{separator}token={response.PlatformSpecificToken}";
+
+                return Ok(new PlatformRedirectResponse
+                {
+                    RedirectUrl = redirectUrl,
+                    Token = response.PlatformSpecificToken!,
+                    Platform = response.Platform
+                });
+            }
+
+            return StatusCode(500, new { message = "Failed to validate platform access" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating platform redirect URL");
+            return StatusCode(500, new { message = "An error occurred while generating redirect URL" });
         }
     }
 }

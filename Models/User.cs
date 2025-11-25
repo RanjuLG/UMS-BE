@@ -11,9 +11,6 @@ public class User
     public string PasswordSalt { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     
-    // Platform relationship
-    public int PlatformId { get; set; }
-    
     // Audit fields
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public int? CreatedBy { get; set; }
@@ -23,6 +20,6 @@ public class User
     public int? DeletedBy { get; set; }
 
     // Navigation properties
-    public Platform Platform { get; set; } = null!;
+    public ICollection<UserPlatform> UserPlatforms { get; set; } = new List<UserPlatform>();
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }

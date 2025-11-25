@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.IdentityModel.Tokens;
 using UMS_BE.Models;
 using UMS_BE.Repositories.Interfaces;
@@ -38,6 +39,25 @@ public class TokenService : ITokenService
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
+        // Add user's assigned platforms with redirect URIs
+        var userPlatforms = await _userRepository.GetUserPlatformsAsync(user.UserId);
+        var platformsList = userPlatforms.ToList();
+        
+        if (platformsList.Any())
+        {
+            // Add platforms as a JSON array
+            var platformsData = platformsList.Select(p => new
+            {
+                platformId = p.PlatformId,
+                name = p.Name,
+                clientId = p.ClientId,
+                redirectUris = string.IsNullOrEmpty(p.RedirectUris) ? new string[0] : JsonSerializer.Deserialize<string[]>(p.RedirectUris) ?? new string[0],
+                postLogoutRedirectUris = string.IsNullOrEmpty(p.PostLogoutRedirectUris) ? new string[0] : JsonSerializer.Deserialize<string[]>(p.PostLogoutRedirectUris) ?? new string[0]
+            }).ToList();
+            
+            claims.Add(new Claim("platforms", JsonSerializer.Serialize(platformsData)));
+        }
+
         // Add roles
         var roles = await _userRepository.GetUserRolesAsync(user.UserId);
         foreach (var role in roles)
@@ -52,8 +72,8 @@ public class TokenService : ITokenService
             var platform = await _platformRepository.GetByClientIdAsync(clientId);
             if (platform != null)
             {
-                claims.Add(new Claim("platform_id", platform.PlatformId.ToString()));
-                claims.Add(new Claim("platform_name", platform.Name));
+                claims.Add(new Claim("client_platform_id", platform.PlatformId.ToString()));
+                claims.Add(new Claim("client_platform_name", platform.Name));
 
                 // Get permissions for this platform
                 var permissions = await _userRepository.GetUserPermissionsForPlatformAsync(user.UserId, platform.PlatformId);

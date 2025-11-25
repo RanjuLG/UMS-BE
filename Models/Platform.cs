@@ -22,6 +22,6 @@ public class Platform
 
     // Navigation properties
     public ICollection<Permission> Permissions { get; set; } = new List<Permission>();
-    public ICollection<User> Users { get; set; } = new List<User>();
+    public ICollection<UserPlatform> UserPlatforms { get; set; } = new List<UserPlatform>();
     public ICollection<Role> Roles { get; set; } = new List<Role>();
 }

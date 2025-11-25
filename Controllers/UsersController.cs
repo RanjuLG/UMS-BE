@@ -33,8 +33,11 @@ public class UsersController : ControllerBase
             LastName = u.LastName,
             Email = u.Email,
             IsActive = u.IsActive,
-            PlatformId = u.PlatformId,
-            PlatformName = u.Platform.Name,
+            Platforms = u.UserPlatforms.Select(up => new PlatformDto
+            {
+                PlatformId = up.Platform.PlatformId,
+                Name = up.Platform.Name
+            }).ToList(),
             Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
         });
 
@@ -56,8 +59,11 @@ public class UsersController : ControllerBase
             LastName = user.LastName,
             Email = user.Email,
             IsActive = user.IsActive,
-            PlatformId = user.PlatformId,
-            PlatformName = user.Platform.Name,
+            Platforms = user.UserPlatforms.Select(up => new PlatformDto
+            {
+                PlatformId = up.Platform.PlatformId,
+                Name = up.Platform.Name
+            }).ToList(),
             Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
         });
     }
@@ -73,9 +79,12 @@ public class UsersController : ControllerBase
                 request.LastName,
                 request.Email,
                 request.Password,
-                request.PlatformId);
+                request.PlatformIds);
 
-            return CreatedAtAction(nameof(GetById), new { id = user.UserId }, new UserDto
+            // Reload user with platforms
+            user = await _userService.GetByIdAsync(user.UserId);
+
+            return CreatedAtAction(nameof(GetById), new { id = user!.UserId }, new UserDto
             {
                 UserId = user.UserId,
                 UserName = user.UserName,
@@ -83,8 +92,11 @@ public class UsersController : ControllerBase
                 LastName = user.LastName,
                 Email = user.Email,
                 IsActive = user.IsActive,
-                PlatformId = user.PlatformId,
-                PlatformName = user.Platform.Name
+                Platforms = user.UserPlatforms.Select(up => new PlatformDto
+                {
+                    PlatformId = up.Platform.PlatformId,
+                    Name = up.Platform.Name
+                }).ToList()
             });
         }
         catch (Exception ex)
@@ -114,8 +126,11 @@ public class UsersController : ControllerBase
                 LastName = user.LastName,
                 Email = user.Email,
                 IsActive = user.IsActive,
-                PlatformId = user.PlatformId,
-                PlatformName = user.Platform.Name,
+                Platforms = user.UserPlatforms.Select(up => new PlatformDto
+                {
+                    PlatformId = up.Platform.PlatformId,
+                    Name = up.Platform.Name
+                }).ToList(),
                 Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
             });
         }
