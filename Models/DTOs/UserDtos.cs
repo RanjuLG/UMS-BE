@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace UMS_BE.Models.DTOs;
 
 public class LoginRequest
@@ -76,4 +78,36 @@ public class ChangePasswordRequest
 {
     public string CurrentPassword { get; set; } = string.Empty;
     public string NewPassword { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request for swapping a Firebase/Google token for a UMS System Token.
+/// </summary>
+public class ExternalLoginRequest
+{
+    /// <summary>
+    /// The raw ID Token received from Firebase/Google Identity on the frontend.
+    /// </summary>
+    [Required(ErrorMessage = "The Firebase Token is required.")]
+    public string FirebaseToken { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Optional: The ID of the application the user is trying to access (e.g., "sub-pal-web").
+    /// If not provided, user logs directly into UMS.
+    /// </summary>
+    public string? ClientId { get; set; }
+}
+
+/// <summary>
+/// Response for external login
+/// </summary>
+public class ExternalLoginResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? AccessToken { get; set; }
+    public string? RefreshToken { get; set; }
+    public int ExpiresIn { get; set; }
+    public UserDto? User { get; set; }
+    public bool IsNewUser { get; set; }
 }

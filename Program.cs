@@ -7,8 +7,24 @@ using UMS_BE.Repositories.Interfaces;
 using UMS_BE.Repositories.Implementations;
 using UMS_BE.Services.Interfaces;
 using UMS_BE.Services.Implementations;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Initialize Firebase Admin SDK
+var firebaseCredentialPath = builder.Configuration["Firebase:CredentialFilePath"];
+if (!string.IsNullOrEmpty(firebaseCredentialPath) && File.Exists(firebaseCredentialPath))
+{
+    FirebaseApp.Create(new AppOptions
+    {
+        Credential = GoogleCredential.FromFile(firebaseCredentialPath)
+    });
+}
+else
+{
+    Console.WriteLine("Warning: Firebase credential file not found. External login will not work.");
+}
 
 // Add DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

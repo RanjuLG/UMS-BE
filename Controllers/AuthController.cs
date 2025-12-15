@@ -6,6 +6,7 @@ using UMS_BE.Models;
 using UMS_BE.Models.DTOs;
 using UMS_BE.Repositories.Interfaces;
 using UMS_BE.Services.Interfaces;
+using FirebaseAdmin.Auth;
 
 namespace UMS_BE.Controllers;
 
@@ -123,6 +124,149 @@ public class AuthController : ControllerBase
             {
                 Success = false,
                 Message = "An error occurred during login"
+            });
+        }
+    }
+
+    /// <summary>
+    /// External login using Firebase/Google token
+    /// Accepts a Firebase ID token, validates it, and returns system tokens
+    /// </summary>
+    [HttpPost("external-login")]
+    public async Task<ActionResult<ExternalLoginResponse>> ExternalLogin([FromBody] ExternalLoginRequest request)
+    {
+        try
+        {
+            // Validate ClientId if provided (same pattern as normal login)
+            if (!string.IsNullOrEmpty(request.ClientId))
+            {
+                var platform = await _platformRepository.GetByClientIdAsync(request.ClientId);
+                if (platform == null || !platform.IsActive)
+                {
+                    return Unauthorized(new ExternalLoginResponse
+                    {
+                        Success = false,
+                        Message = "Invalid or inactive client application"
+                    });
+                }
+            }
+
+            // Verify Firebase token - this is the proof of identity
+            FirebaseToken decodedToken;
+            try
+            {
+                decodedToken = await FirebaseAuth.DefaultInstance.VerifyIdTokenAsync(request.FirebaseToken);
+            }
+            catch (FirebaseAuthException ex)
+            {
+                _logger.LogWarning(ex, "Invalid Firebase token");
+                return Unauthorized(new ExternalLoginResponse
+                {
+                    Success = false,
+                    Message = "Invalid or expired Firebase token"
+                });
+            }
+
+            // Extract user info from Firebase token
+            var firebaseUid = decodedToken.Uid;
+            var email = decodedToken.Claims.TryGetValue("email", out var emailClaim) ? emailClaim?.ToString() : null;
+            var name = decodedToken.Claims.TryGetValue("name", out var nameClaim) ? nameClaim?.ToString() : null;
+            var picture = decodedToken.Claims.TryGetValue("picture", out var pictureClaim) ? pictureClaim?.ToString() : null;
+
+            if (string.IsNullOrEmpty(email))
+            {
+                return BadRequest(new ExternalLoginResponse
+                {
+                    Success = false,
+                    Message = "Email not found in Firebase token"
+                });
+            }
+
+            // Check if user exists
+            var user = await _userService.GetByEmailAsync(email);
+            var isNewUser = false;
+
+            if (user == null)
+            {
+                // Create new user from Firebase data
+                isNewUser = true;
+                var firstName = name?.Split(' ').FirstOrDefault() ?? email.Split('@')[0];
+                var lastName = name?.Split(' ').Skip(1).FirstOrDefault() ?? "";
+                var userName = email.Split('@')[0];
+
+                // Generate a random password for external users (they won't use it)
+                var randomPassword = Guid.NewGuid().ToString("N");
+
+                user = await _userService.CreateAsync(
+                    userName,
+                    firstName,
+                    lastName,
+                    email,
+                    randomPassword,
+                    new List<int>()); // No platforms initially
+
+                // Reload user with navigation properties
+                user = await _userService.GetByIdAsync(user.UserId);
+            }
+
+            if (user == null || !user.IsActive)
+            {
+                return Unauthorized(new ExternalLoginResponse
+                {
+                    Success = false,
+                    Message = "User account is inactive"
+                });
+            }
+
+            // Generate system tokens
+            var accessToken = await _tokenService.GenerateAccessTokenAsync(user, request.ClientId);
+            var refreshToken = await _tokenService.GenerateRefreshToken();
+
+            // Store refresh token
+            var refreshTokenEntity = new RefreshToken
+            {
+                Token = refreshToken,
+                UserId = user.UserId,
+                ClientId = request.ClientId,
+                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.RefreshTokens.Add(refreshTokenEntity);
+            await _context.SaveChangesAsync();
+
+            return Ok(new ExternalLoginResponse
+            {
+                Success = true,
+                Message = isNewUser ? "User registered and logged in successfully" : "Login successful",
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                ExpiresIn = 3600, // 1 hour
+                IsNewUser = isNewUser,
+                User = new UserDto
+                {
+                    UserId = user.UserId,
+                    UserName = user.UserName,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Email = user.Email,
+                    IsActive = user.IsActive,
+                    Platforms = user.UserPlatforms.Select(up => new PlatformDto
+                    {
+                        PlatformId = up.Platform.PlatformId,
+                        Name = up.Platform.Name
+                    }).ToList(),
+                    Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during external login");
+            return StatusCode(500, new ExternalLoginResponse
+            {
+                Success = false,
+                Message = "An error occurred during external login"
             });
         }
     }
